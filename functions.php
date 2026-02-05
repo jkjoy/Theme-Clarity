@@ -699,6 +699,150 @@ function themeConfig($form)
         _t('分页跳转')
     );
     $form->addInput($enablePageJump);
+
+    $backupAction = new \Typecho\Widget\Helper\Form\Element\Hidden('clarity_backup_action', null, '');
+    $backupAction->input->setAttribute('id', 'clarity-backup-action');
+    $form->addInput($backupAction);
+
+    $backupTarget = new \Typecho\Widget\Helper\Form\Element\Hidden('clarity_backup_target', null, '');
+    $backupTarget->input->setAttribute('id', 'clarity-backup-target');
+    $form->addInput($backupTarget);
+
+    $repo = 'jkjoy/Theme-Clarity';
+    $updateInfo = clarity_github_update_info($repo);
+    $backups = clarity_theme_backups_read();
+    $backupListHtml = '';
+    if (!empty($backups)) {
+        $sorted = $backups;
+        usort($sorted, function ($a, $b) {
+            $aTime = (int) ($a['ts'] ?? 0);
+            $bTime = (int) ($b['ts'] ?? 0);
+            return $bTime <=> $aTime;
+        });
+        foreach ($sorted as $item) {
+            $id = (string) ($item['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $time = (string) ($item['time'] ?? $id);
+            $safeId = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
+            $safeTime = htmlspecialchars($time, ENT_QUOTES, 'UTF-8');
+            $backupListHtml .= '<div class="clarity-backup-item" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;border:1px solid #e6e6e6;border-radius:4px;">';
+            $backupListHtml .= '<span>' . $safeTime . '</span>';
+            $backupListHtml .= '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+            $backupListHtml .= '<button type="button" class="btn" data-backup-action="restore" data-backup-id="' . $safeId . '">' . _t('恢复') . '</button>';
+            $backupListHtml .= '<button type="button" class="btn" data-backup-action="delete" data-backup-id="' . $safeId . '">' . _t('删除') . '</button>';
+            $backupListHtml .= '</div></div>';
+        }
+    }
+    if ($backupListHtml === '') {
+        $backupListHtml = '<div class="description">' . _t('暂无备份') . '</div>';
+    }
+
+    if (is_array($updateInfo) && !empty($updateInfo['latest'])) {
+        echo '<ul class="typecho-option"><li>';
+        echo '<label class="typecho-label">' . _t('Clarity主题更新') . '</label>';
+        echo '<div class="description">';
+        $current = htmlspecialchars((string) ($updateInfo['current'] ?? CLARITY_VERSION), ENT_QUOTES, 'UTF-8');
+        $latest = htmlspecialchars((string) ($updateInfo['latest'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $checked = htmlspecialchars((string) ($updateInfo['checked_at'] ?? ''), ENT_QUOTES, 'UTF-8');
+        if (!empty($updateInfo['need_update'])) {
+            $url = htmlspecialchars((string) ($updateInfo['url'] ?? ''), ENT_QUOTES, 'UTF-8');
+            echo _t('发现新版本：') . $latest . '，' . _t('当前版本：') . $current;
+            if ($url !== '') {
+                echo ' <a href="' . $url . '" target="_blank" rel="noopener noreferrer">' . _t('前往下载') . '</a>';
+            }
+        } else {
+            echo _t('当前已是最新版本：') . $current;
+        }
+        if ($checked !== '') {
+            echo '<br><span class="description">' . _t('最近检查：') . $checked . '</span>';
+        }
+        echo '</div></li></ul>';
+    }
+
+    echo '<ul class="typecho-option"><li>';
+    echo '<label class="typecho-label">' . _t('Clarity主题设置备份') . '</label>';
+    echo '<div class="description">' . _t('最多保留 3 份备份。备份/恢复/删除不会保存当前未保存的设置。') . '</div>';
+    echo '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">';
+    echo '<button type="button" class="btn" data-backup-action="backup">' . _t('备份当前设置') . '</button>';
+    echo '</div>';
+    echo '<div id="clarity-backup-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">' . $backupListHtml . '</div>';
+    echo '<div id="clarity-backup-message" class="description" style="margin-top:6px;display:none;"></div>';
+    echo '</li></ul>';
+
+    echo '<script>(function(){var init=function(){var form=document.querySelector(\'form[action*="themes-edit"]\');var actionInput=document.getElementById(\'clarity-backup-action\');var targetInput=document.getElementById(\'clarity-backup-target\');var message=document.getElementById(\'clarity-backup-message\');if(!form||!actionInput||!targetInput){return;}var showMsg=function(text,type){if(!message){return;}message.textContent=text;message.style.display=\'block\';if(type===\'success\'){message.style.color=\'#1a7f37\';}else if(type===\'warn\'){message.style.color=\'#b78103\';}else{message.style.color=\'#d14343\';}};document.querySelectorAll(\'[data-backup-action]\').forEach(function(btn){btn.addEventListener(\'click\',function(){var action=btn.getAttribute(\'data-backup-action\');if(!action){return;}var target=btn.getAttribute(\'data-backup-id\')||\'\';if((action===\'restore\'||action===\'delete\')&&!target){showMsg(\'请选择要操作的备份\',\'error\');return;}if(action===\'delete\'){if(!btn.dataset.confirmed){btn.dataset.confirmed=\'1\';showMsg(\'再次点击删除以确认\', \'warn\');setTimeout(function(){btn.dataset.confirmed=\'\';}, 3000);return;}btn.dataset.confirmed=\'\';}actionInput.value=action;targetInput.value=target;form.submit();});});};if(document.readyState===\'loading\'){document.addEventListener(\'DOMContentLoaded\',init);}else{init();}})();</script>';
+}
+
+function themeConfigHandle($settings, $isInit)
+{
+    if ($isInit) {
+        return false;
+    }
+
+    $action = isset($settings['clarity_backup_action']) ? (string) $settings['clarity_backup_action'] : '';
+    $target = isset($settings['clarity_backup_target']) ? (string) $settings['clarity_backup_target'] : '';
+
+    if ($action === 'backup') {
+        $current = clarity_theme_read_options();
+        if (empty($current)) {
+            $current = clarity_theme_clean_settings($settings);
+        }
+        $backups = clarity_theme_backups_read();
+        $backups[] = [
+            'id' => uniqid('b', true),
+            'time' => date('Y-m-d H:i:s'),
+            'ts' => time(),
+            'data' => $current
+        ];
+        if (count($backups) > 3) {
+            usort($backups, function ($a, $b) {
+                return ((int) ($a['ts'] ?? 0)) <=> ((int) ($b['ts'] ?? 0));
+            });
+            $backups = array_slice($backups, -3);
+        }
+        clarity_theme_backups_write($backups);
+        \Widget\Notice::alloc()->set(_t('已创建主题设置备份'), 'success');
+        return true;
+    }
+
+    if ($action === 'delete') {
+        $backups = clarity_theme_backups_read();
+        $filtered = [];
+        foreach ($backups as $item) {
+            $id = (string) ($item['id'] ?? '');
+            if ($id === '' || $id === $target) {
+                continue;
+            }
+            $filtered[] = $item;
+        }
+        clarity_theme_backups_write($filtered);
+        \Widget\Notice::alloc()->set(_t('备份已删除'), 'success');
+        return true;
+    }
+
+    if ($action === 'restore') {
+        $backups = clarity_theme_backups_read();
+        $restore = null;
+        foreach ($backups as $item) {
+            if ((string) ($item['id'] ?? '') === $target) {
+                $restore = $item;
+                break;
+            }
+        }
+        if ($restore && is_array($restore['data'] ?? null)) {
+            $data = clarity_theme_clean_settings($restore['data']);
+            clarity_theme_save_options($data);
+            \Widget\Notice::alloc()->set(_t('已恢复备份设置'), 'success');
+        } else {
+            \Widget\Notice::alloc()->set(_t('备份不存在或数据无效'), 'error');
+        }
+        return true;
+    }
+
+    $clean = clarity_theme_clean_settings($settings);
+    clarity_theme_save_options($clean);
+    return true;
 }
 
 function themeFields($layout)
@@ -819,6 +963,167 @@ function clarity_opt(string $key, $default = null)
         return $options->{$name};
     }
     return $default;
+}
+
+function clarity_theme_name(): string
+{
+    $options = \Typecho\Widget::widget('Widget_Options');
+    $theme = $options->theme ?? '';
+    if ($theme !== '') {
+        return $theme;
+    }
+    return basename(__DIR__);
+}
+
+function clarity_db_get_option_value(string $name): ?string
+{
+    try {
+        $db = \Typecho\Db::get();
+        $row = $db->fetchRow(
+            $db->select()->from('table.options')->where('name = ?', $name)->limit(1)
+        );
+        if (is_array($row) && array_key_exists('value', $row)) {
+            return $row['value'];
+        }
+    } catch (\Throwable $e) {
+    }
+    return null;
+}
+
+function clarity_db_set_option_value(string $name, string $value): void
+{
+    try {
+        $db = \Typecho\Db::get();
+        $exists = $db->fetchRow(
+            $db->select()->from('table.options')->where('name = ?', $name)->limit(1)
+        );
+        if ($exists) {
+            $db->query(
+                $db->update('table.options')->rows(['value' => $value])->where('name = ?', $name)
+            );
+        } else {
+            $db->query(
+                $db->insert('table.options')->rows(['name' => $name, 'value' => $value, 'user' => 0])
+            );
+        }
+    } catch (\Throwable $e) {
+    }
+}
+
+function clarity_theme_option_key(): string
+{
+    return 'theme:' . clarity_theme_name();
+}
+
+function clarity_theme_backup_key(): string
+{
+    return clarity_theme_option_key() . ':backups';
+}
+
+function clarity_theme_update_key(): string
+{
+    return clarity_theme_option_key() . ':github-update';
+}
+
+function clarity_theme_read_options(): array
+{
+    $raw = clarity_db_get_option_value(clarity_theme_option_key());
+    if (!is_string($raw) || $raw === '') {
+        return [];
+    }
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
+}
+
+function clarity_theme_save_options(array $settings): void
+{
+    $value = json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($value === false) {
+        return;
+    }
+    clarity_db_set_option_value(clarity_theme_option_key(), $value);
+}
+
+function clarity_theme_clean_settings(array $settings): array
+{
+    unset($settings['clarity_backup_action'], $settings['clarity_backup_target']);
+    return $settings;
+}
+
+function clarity_theme_backups_read(): array
+{
+    $raw = clarity_db_get_option_value(clarity_theme_backup_key());
+    if (!is_string($raw) || $raw === '') {
+        return [];
+    }
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : [];
+}
+
+function clarity_theme_backups_write(array $backups): void
+{
+    $value = json_encode(array_values($backups), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($value === false) {
+        return;
+    }
+    clarity_db_set_option_value(clarity_theme_backup_key(), $value);
+}
+
+function clarity_github_update_info(string $repo): ?array
+{
+    $repo = trim($repo);
+    if ($repo === '') {
+        return null;
+    }
+
+    $cacheRaw = clarity_db_get_option_value(clarity_theme_update_key());
+    $cache = [];
+    if (is_string($cacheRaw) && $cacheRaw !== '') {
+        $cache = json_decode($cacheRaw, true);
+    }
+
+    $cacheTime = (int) ($cache['time'] ?? 0);
+    $cacheData = is_array($cache['data'] ?? null) ? $cache['data'] : null;
+    $ttl = 21600;
+    if ($cacheData && $cacheTime > 0 && (time() - $cacheTime) < $ttl) {
+        $cacheData['checked_at'] = date('Y-m-d H:i:s', $cacheTime);
+        return $cacheData;
+    }
+
+    $url = 'https://api.github.com/repos/' . $repo . '/releases/latest';
+    $headers = [
+        'User-Agent' => 'Typecho-Clarity',
+        'Accept' => 'application/vnd.github+json',
+    ];
+    $data = clarity_http_get_json($url, $headers, 8);
+    if (!is_array($data)) {
+        if ($cacheData) {
+            $cacheData['checked_at'] = $cacheTime ? date('Y-m-d H:i:s', $cacheTime) : '';
+            return $cacheData;
+        }
+        return null;
+    }
+
+    $tag = (string) ($data['tag_name'] ?? $data['name'] ?? '');
+    $tag = preg_replace('/^v/i', '', $tag);
+    $current = preg_replace('/^v/i', '', (string) CLARITY_VERSION);
+    $needUpdate = $tag !== '' && $current !== '' ? version_compare($tag, $current, '>') : false;
+
+    $info = [
+        'current' => $current,
+        'latest' => $tag,
+        'url' => (string) ($data['html_url'] ?? ''),
+        'published_at' => (string) ($data['published_at'] ?? ''),
+        'need_update' => $needUpdate,
+    ];
+
+    clarity_db_set_option_value(
+        clarity_theme_update_key(),
+        json_encode(['time' => time(), 'data' => $info], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    );
+
+    $info['checked_at'] = date('Y-m-d H:i:s');
+    return $info;
 }
 
 function clarity_bool($value, bool $default = false): bool
