@@ -318,7 +318,7 @@ function themeConfig($form)
     $communityName = new \Typecho\Widget\Helper\Form\Element\Text(
         'clarity_community_name',
         null,
-        '技术交流群',
+        '技术交流QQ群',
         _t('社区群组名称')
     );
     $form->addInput($communityName);
@@ -326,7 +326,7 @@ function themeConfig($form)
     $communityDesc = new \Typecho\Widget\Helper\Form\Element\Text(
         'clarity_community_desc',
         null,
-        '169994096',
+        '377202312',
         _t('社区群组描述')
     );
     $form->addInput($communityDesc);
@@ -425,7 +425,7 @@ function themeConfig($form)
         null,
         '',
         _t('微语数据（JSON）'),
-        _t('示例：[{"content":"今天很棒","time":"2025-01-01 12:00","tags":["生活"]}]')
+        _t('示例：[{"content":"今天很棒","time":"2025-01-01 12:00","tags":["生活"]}]（Enhancement 插件未启用时使用）')
     );
     $form->addInput($momentsData);
 
@@ -436,6 +436,16 @@ function themeConfig($form)
         _t('瞬间页面标题')
     );
     $form->addInput($momentsTitle);
+
+    $momentsPageSize = new \Typecho\Widget\Helper\Form\Element\Text(
+        'clarity_moments_page_size',
+        null,
+        '20',
+        _t('瞬间分页条数'),
+        _t('瞬间页面每页显示数量')
+    );
+    $momentsPageSize->input->setAttribute('class', 'w-10');
+    $form->addInput($momentsPageSize->addRule('isInteger', _t('请填写整数数字')));
 
     $linksTitle = new \Typecho\Widget\Helper\Form\Element\Text(
         'clarity_links_title',
@@ -1429,7 +1439,9 @@ function clarity_parse_user_agent(string $ua): array
 function clarity_links_groups(): array
 {
     $options = \Typecho\Widget::widget('Widget_Options');
-    if (isset($options->plugins['activated']['Links'])) {
+    $useEnhancement = isset($options->plugins['activated']['Enhancement']);
+    $useLinks = isset($options->plugins['activated']['Links']);
+    if ($useEnhancement || $useLinks) {
         try {
             $db = \Typecho\Db::get();
             $prefix = $db->getPrefix();
@@ -1458,10 +1470,12 @@ function clarity_links_groups(): array
 
             $image = $link['image'] ?? '';
             if (($image === null || $image === '') && !empty($link['email'])) {
-                $image = 'https://gravatar.helingqi.com/wavatar/' . md5($link['email']) . '?s=64&d=mm';
+                $avatarBase = $useEnhancement ? 'https://cn.cravatar.com/avatar/' : 'https://gravatar.helingqi.com/wavatar/';
+                $image = $avatarBase . md5($link['email']) . '?s=64&d=mm';
             }
             if ($image === null || $image === '') {
-                $image = \Typecho\Common::url('usr/plugins/Links/nopic.png', $options->siteUrl);
+                $nopicPath = $useEnhancement ? 'usr/plugins/Enhancement/nopic.png' : 'usr/plugins/Links/nopic.png';
+                $image = \Typecho\Common::url($nopicPath, $options->siteUrl);
             } else {
                 $image = trim((string) $image);
                 if (!preg_match('#^https?://#i', $image) && strpos($image, '//') !== 0) {
@@ -1481,6 +1495,180 @@ function clarity_links_groups(): array
     }
 
     return clarity_json_option('links_data', []);
+}
+
+function clarity_moments_base_url(): string
+{
+    $options = \Typecho\Widget::widget('Widget_Options');
+    $indexBase = $options->index ?? '';
+
+    try {
+        $db = \Typecho\Db::get();
+        $row = $db->fetchRow(
+            $db->select()
+                ->from('table.contents')
+                ->where('table.contents.type = ?', 'page')
+                ->where('table.contents.status = ?', 'publish')
+                ->where('table.contents.template = ?', 'moments')
+                ->order('table.contents.created', \Typecho\Db::SORT_DESC)
+                ->limit(1)
+        );
+
+        if (!$row) {
+            $row = $db->fetchRow(
+                $db->select()
+                    ->from('table.contents')
+                    ->where('table.contents.type = ?', 'page')
+                    ->where('table.contents.status = ?', 'publish')
+                    ->where('table.contents.slug = ?', 'moments')
+                    ->order('table.contents.created', \Typecho\Db::SORT_DESC)
+                    ->limit(1)
+            );
+        }
+
+        if ($row) {
+            $url = \Typecho\Router::url('page', $row, $indexBase);
+            return \Typecho\Common::url($url, $options->siteUrl);
+        }
+    } catch (\Throwable $e) {
+    }
+
+    return \Typecho\Common::url('moments', $options->siteUrl);
+}
+
+function clarity_moments_parse_tags($raw): array
+{
+    if (is_array($raw)) {
+        $tags = [];
+        foreach ($raw as $tag) {
+            $tag = trim((string) $tag);
+            if ($tag !== '') {
+                $tags[] = $tag;
+            }
+        }
+        return array_values(array_unique($tags));
+    }
+
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw, true);
+    if (is_array($decoded)) {
+        $tags = [];
+        foreach ($decoded as $tag) {
+            $tag = trim((string) $tag);
+            if ($tag !== '') {
+                $tags[] = $tag;
+            }
+        }
+        return array_values(array_unique($tags));
+    }
+
+    $parts = preg_split('/\s*,\s*/', $raw);
+    $tags = [];
+    if (is_array($parts)) {
+        foreach ($parts as $tag) {
+            $tag = trim((string) $tag);
+            if ($tag !== '') {
+                $tags[] = $tag;
+            }
+        }
+    }
+    return array_values(array_unique($tags));
+}
+
+function clarity_moments_parse_media($raw, string $siteUrl): array
+{
+    if (is_array($raw)) {
+        $decoded = $raw;
+    } else {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+    }
+
+    if (!array_key_exists(0, $decoded)) {
+        $decoded = [$decoded];
+    }
+
+    $items = [];
+    foreach ($decoded as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $url = $item['url'] ?? '';
+        $url = is_string($url) ? trim($url) : '';
+        if ($url === '') {
+            continue;
+        }
+        if (!preg_match('#^(https?:)?//#i', $url) && !preg_match('#^(data|blob|file):#i', $url) && strpos($url, '/') !== 0) {
+            $url = \Typecho\Common::url($url, $siteUrl);
+        }
+        $item['url'] = $url;
+        $items[] = $item;
+    }
+
+    return $items;
+}
+
+function clarity_moments_items(int $limit = 0): array
+{
+    $options = \Typecho\Widget::widget('Widget_Options');
+    if (isset($options->plugins['activated']['Enhancement'])) {
+        try {
+            $db = \Typecho\Db::get();
+            $prefix = $db->getPrefix();
+            $sql = $db->select()->from($prefix . 'moments')->order($prefix . 'moments.mid', \Typecho\Db::SORT_DESC);
+            if ($limit > 0) {
+                $sql = $sql->limit($limit);
+            }
+            $rows = $db->fetchAll($sql);
+            $items = [];
+            $baseUrl = clarity_moments_base_url();
+            $pageSize = (int) clarity_opt('moments_page_size', '20');
+            if ($pageSize <= 0) {
+                $pageSize = 20;
+            }
+            if ($pageSize > 100) {
+                $pageSize = 100;
+            }
+            $baseSep = strpos($baseUrl, '?') === false ? '?' : '&';
+            foreach ($rows as $index => $row) {
+                $mid = (int) ($row['mid'] ?? 0);
+                $id = $mid > 0 ? 'moment-' . $mid : '';
+                $created = $row['created'] ?? 0;
+                if (is_numeric($created)) {
+                    $timestamp = (int) $created;
+                } else {
+                    $parsed = strtotime((string) $created);
+                    $timestamp = $parsed ? $parsed : 0;
+                }
+                $time = $timestamp > 0 ? date('Y-m-d H:i', $timestamp) : '';
+                $pageNumber = $pageSize > 0 ? (int) floor($index / $pageSize) + 1 : 1;
+                $pageParam = $pageNumber > 1 ? ($baseSep . 'page=' . $pageNumber) : '';
+                $items[] = [
+                    'id' => $id,
+                    'content' => (string) ($row['content'] ?? ''),
+                    'time' => $time,
+                    'tags' => clarity_moments_parse_tags($row['tags'] ?? ''),
+                    'media' => clarity_moments_parse_media($row['media'] ?? '', $options->siteUrl),
+                    'url' => $id !== '' ? ($baseUrl . $pageParam . '#' . $id) : ($baseUrl . $pageParam),
+                ];
+            }
+            return $items;
+        } catch (\Throwable $e) {
+        }
+    }
+
+    $data = clarity_json_option('moments_data', []);
+    return is_array($data) ? $data : [];
 }
 
 function clarity_site_logo(string $fallback = ''): string

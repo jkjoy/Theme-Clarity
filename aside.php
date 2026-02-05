@@ -6,10 +6,15 @@ $showAside = $showAside && $enableAside;
 $enablePostToc = $this->is('post') ? clarity_should_show_toc($this, 'post') : false;
 $enablePageToc = $this->is('page') ? clarity_should_show_toc($this, 'page') : false;
 $widgets = clarity_get_widgets();
-$moments = clarity_json_option('moments_data', []);
 $momentsCount = (int) clarity_opt('moments_widget_count', '3');
 $momentsTitle = clarity_opt('moments_widget_title', '微语');
 $momentsNoText = clarity_opt('moments_widget_no_text', '');
+$moments = $momentsCount > 0 ? clarity_moments_items($momentsCount) : [];
+$momentsPageUrl = clarity_moments_base_url();
+$momentsPageSep = strpos($momentsPageUrl, '?') === false ? '?' : '&';
+$momentsTagLink = function (string $tag) use ($momentsPageUrl, $momentsPageSep): string {
+    return $momentsPageUrl . $momentsPageSep . 'tag=' . urlencode($tag);
+};
 $weatherKey = trim((string) clarity_opt('weather_key', ''));
 ?>
 
@@ -236,7 +241,7 @@ $weatherKey = trim((string) clarity_opt('weather_key', ''));
           <section class="widget">
             <hgroup class="widget-title">
               <span class="title-text text-creative"><?php echo htmlspecialchars($momentsTitle, ENT_QUOTES, 'UTF-8'); ?></span>
-              <a href="<?php echo $this->options->siteUrl; ?>moments" aria-label="查看全部" title="查看全部">
+              <a href="<?php echo htmlspecialchars($momentsPageUrl, ENT_QUOTES, 'UTF-8'); ?>" aria-label="查看全部" title="查看全部">
                 <span class="icon-[ph--arrow-right-bold]"></span>
               </a>
             </hgroup>
@@ -263,7 +268,7 @@ $weatherKey = trim((string) clarity_opt('weather_key', ''));
                     <?php if (!empty($tags)): ?>
                       <div class="moment-tags">
                         <?php foreach (array_slice($tags, 0, 2) as $tag): ?>
-                          <a class="moment-tag" href="<?php echo $this->options->siteUrl . '/moments?tag=' . urlencode($tag); ?>">
+                          <a class="moment-tag" href="<?php echo htmlspecialchars($momentsTagLink((string) $tag), ENT_QUOTES, 'UTF-8'); ?>">
                             <span class="tag-hash">#</span><span><?php echo htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'); ?></span>
                           </a>
                         <?php endforeach; ?>

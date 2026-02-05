@@ -13,12 +13,42 @@ clarity_set('isLinksPage', false);
 ?>
 <?php $this->need('header.php'); ?>
 <?php
-$moments = clarity_json_option('moments_data', []);
+$moments = clarity_moments_items();
 $tagParam = trim((string) $this->request->get('tag', ''));
+$pageParam = (int) $this->request->get('page', 1);
+$currentPage = $pageParam > 0 ? $pageParam : 1;
+$pageSize = (int) clarity_opt('moments_page_size', '20');
+if ($pageSize <= 0) {
+    $pageSize = 20;
+}
+if ($pageSize > 100) {
+    $pageSize = 100;
+}
+
 $momentsBase = $this->permalink;
 $momentsSep = strpos($momentsBase, '?') === false ? '?' : '&';
-$tagLink = function (string $tag) use ($momentsBase, $momentsSep): string {
-    return $momentsBase . $momentsSep . 'tag=' . urlencode($tag);
+$buildLink = function (array $params) use ($momentsBase, $momentsSep): string {
+    if (empty($params)) {
+        return $momentsBase;
+    }
+    $query = http_build_query($params);
+    if ($query === '') {
+        return $momentsBase;
+    }
+    return $momentsBase . $momentsSep . $query;
+};
+$tagLink = function (string $tag) use ($buildLink): string {
+    return $buildLink(['tag' => $tag]);
+};
+$pageLink = function (int $page) use ($buildLink, $tagParam): string {
+    $params = [];
+    if ($tagParam !== '') {
+        $params['tag'] = $tagParam;
+    }
+    if ($page > 1) {
+        $params['page'] = $page;
+    }
+    return $buildLink($params);
 };
 
 $tagsMap = [];
@@ -52,6 +82,14 @@ foreach ($normalized as $moment) {
     }
     $filtered[] = $moment;
 }
+
+$total = count($filtered);
+$totalPages = $total > 0 ? (int) ceil($total / $pageSize) : 1;
+if ($currentPage > $totalPages) {
+    $currentPage = $totalPages;
+}
+$offset = ($currentPage - 1) * $pageSize;
+$paged = array_slice($filtered, $offset, $pageSize);
 ?>
 
 <div class="moments-header">
@@ -88,8 +126,8 @@ foreach ($normalized as $moment) {
 <?php endif; ?>
 
 <div class="moments-list proper-height">
-  <?php if (!empty($filtered)): ?>
-    <?php foreach ($filtered as $idx => $moment): ?>
+  <?php if (!empty($paged)): ?>
+    <?php foreach ($paged as $idx => $moment): ?>
       <?php
       $momentId = $moment['id'] ?? $moment['name'] ?? $moment['slug'] ?? ('moment-' . $idx);
       $contentHtml = $moment['content'] ?? '';
@@ -173,27 +211,11 @@ foreach ($normalized as $moment) {
           <?php endif; ?>
 
           <div class="moment-actions">
-            <button class="action-btn like" title="点赞">
-              <span class="icon-[ph--heart-bold]"></span>
-              <span><?php echo $likes; ?></span>
-            </button>
-            <button class="action-btn comment" title="评论" onclick="this.closest('.moment-card').querySelector('.moment-comment')?.classList.toggle('show')">
-              <span class="icon-[ph--chat-circle-bold]"></span>
-              <span><?php echo $comments; ?></span>
-            </button>
-            <button class="action-btn share" title="复制链接" data-url="<?php echo htmlspecialchars('#' . $momentId, ENT_QUOTES, 'UTF-8'); ?>" onclick="(function(btn){ var text = location.origin + location.pathname + btn.dataset.url; if (window.clarityCopyText) { window.clarityCopyText(text); } else if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); } btn.classList.add('copied'); setTimeout(function(){ btn.classList.remove('copied'); }, 2000); })(this);">
+            <button class="action-btn share" title="复制链接" data-url="<?php echo htmlspecialchars('#' . $momentId, ENT_QUOTES, 'UTF-8'); ?>" onclick="(function(btn){ var text = location.origin + location.pathname + location.search + btn.dataset.url; if (window.clarityCopyText) { window.clarityCopyText(text); } else if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); } btn.classList.add('copied'); setTimeout(function(){ btn.classList.remove('copied'); }, 2000); })(this);">
               <span class="icon-[ph--link-bold]"></span>
             </button>
           </div>
         </footer>
-
-        <div class="moment-comment">
-          <div class="comment-header">
-            <span class="icon-[ph--chat-circle-text-bold]"></span>
-            <span>评论</span>
-          </div>
-          <div class="comment-body">此页面暂不支持独立评论。</div>
-        </div>
       </article>
     <?php endforeach; ?>
   <?php else: ?>
@@ -203,5 +225,49 @@ foreach ($normalized as $moment) {
     </div>
   <?php endif; ?>
 </div>
+
+<?php if ($totalPages > 1): ?>
+  <nav class="pagination-wrapper">
+    <div class="pagination">
+      <?php if ($currentPage > 1): ?>
+        <a class="page-btn page-prev" href="<?php echo htmlspecialchars($pageLink($currentPage - 1), ENT_QUOTES, 'UTF-8'); ?>">
+          <span class="icon-[ph--caret-left-bold]"></span>
+        </a>
+      <?php else: ?>
+        <span class="page-btn page-prev disabled"><span class="icon-[ph--caret-left-bold]"></span></span>
+      <?php endif; ?>
+
+      <div class="page-numbers">
+        <?php if ($currentPage > 2): ?>
+          <a class="page-num" href="<?php echo htmlspecialchars($pageLink(1), ENT_QUOTES, 'UTF-8'); ?>">1</a>
+        <?php endif; ?>
+        <?php if ($currentPage > 3): ?>
+          <span class="page-ellipsis">...</span>
+        <?php endif; ?>
+        <?php if ($currentPage > 1): ?>
+          <a class="page-num" href="<?php echo htmlspecialchars($pageLink($currentPage - 1), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $currentPage - 1; ?></a>
+        <?php endif; ?>
+        <span class="page-num active"><?php echo $currentPage; ?></span>
+        <?php if ($currentPage < $totalPages): ?>
+          <a class="page-num" href="<?php echo htmlspecialchars($pageLink($currentPage + 1), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $currentPage + 1; ?></a>
+        <?php endif; ?>
+        <?php if ($currentPage < $totalPages - 2): ?>
+          <span class="page-ellipsis">...</span>
+        <?php endif; ?>
+        <?php if ($currentPage < $totalPages - 1): ?>
+          <a class="page-num" href="<?php echo htmlspecialchars($pageLink($totalPages), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $totalPages; ?></a>
+        <?php endif; ?>
+      </div>
+
+      <?php if ($currentPage < $totalPages): ?>
+        <a class="page-btn page-next" href="<?php echo htmlspecialchars($pageLink($currentPage + 1), ENT_QUOTES, 'UTF-8'); ?>">
+          <span class="icon-[ph--caret-right-bold]"></span>
+        </a>
+      <?php else: ?>
+        <span class="page-btn page-next disabled"><span class="icon-[ph--caret-right-bold]"></span></span>
+      <?php endif; ?>
+    </div>
+  </nav>
+<?php endif; ?>
 
 <?php $this->need('footer.php'); ?>

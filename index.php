@@ -4,7 +4,7 @@
  * Clarity
  * @package Clarity
  * @author Handsome & 纸鹿
- * @version 1.0.0
+ * @version 1.0.1
  */
 clarity_set('showAside', true);
 clarity_set('pageTitle', null);
