@@ -999,13 +999,9 @@ HTML;
   var tabOrder = Object.keys(tabLabels);
   var storageKey = "clarity-theme-settings-tab";
 
-  function initActions(form) {
-    var actionInput = document.getElementById("clarity-backup-action");
-    var targetInput = document.getElementById("clarity-backup-target");
-    var updateInput = document.getElementById("clarity-update-action");
-    var message = document.getElementById("clarity-backup-message");
-
+  function initActions(scope, form) {
     function showMsg(text, type) {
+      var message = document.getElementById("clarity-backup-message");
       if (!message) {
         return;
       }
@@ -1020,8 +1016,18 @@ HTML;
       }
     }
 
-    Array.prototype.slice.call(form.querySelectorAll("[data-backup-action]")).forEach(function(btn) {
-      btn.addEventListener("click", function() {
+    scope.addEventListener("click", function(event) {
+      var btn = event.target && event.target.closest ? event.target.closest("[data-backup-action],[data-update-action]") : null;
+      if (!btn || !scope.contains(btn)) {
+        return;
+      }
+
+      var actionInput = document.getElementById("clarity-backup-action");
+      var targetInput = document.getElementById("clarity-backup-target");
+      var updateInput = document.getElementById("clarity-update-action");
+      event.preventDefault();
+
+      if (btn.hasAttribute("data-backup-action")) {
         if (!actionInput || !targetInput) {
           return;
         }
@@ -1051,35 +1057,32 @@ HTML;
           updateInput.value = "";
         }
         form.submit();
-      });
-    });
+        return;
+      }
 
-    Array.prototype.slice.call(form.querySelectorAll("[data-update-action]")).forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        if (!updateInput) {
-          return;
-        }
-        var action = btn.getAttribute("data-update-action");
-        if (!action) {
-          return;
-        }
-        var confirmText = btn.getAttribute("data-confirm") || "";
-        if (confirmText && !window.confirm(confirmText)) {
-          return;
-        }
-        updateInput.value = action;
-        if (actionInput) {
-          actionInput.value = "";
-        }
-        if (targetInput) {
-          targetInput.value = "";
-        }
-        form.submit();
-      });
+      if (!updateInput) {
+        return;
+      }
+      var action = btn.getAttribute("data-update-action");
+      if (!action) {
+        return;
+      }
+      var confirmText = btn.getAttribute("data-confirm") || "";
+      if (confirmText && !window.confirm(confirmText)) {
+        return;
+      }
+      updateInput.value = action;
+      if (actionInput) {
+        actionInput.value = "";
+      }
+      if (targetInput) {
+        targetInput.value = "";
+      }
+      form.submit();
     });
   }
 
-  function initTabs(form) {
+  function initTabs(scope, form) {
     var nameToTab = {};
     tabOrder.forEach(function(tab) {
       (tabMap[tab] || []).forEach(function(name) {
@@ -1092,7 +1095,9 @@ HTML;
       tabSections[tab] = [];
     });
 
-    var optionNodes = Array.prototype.slice.call(form.querySelectorAll(".typecho-option"));
+    var optionNodes = Array.prototype.slice.call(scope.querySelectorAll(".typecho-option")).filter(function(option) {
+      return !option.classList.contains("typecho-option-submit");
+    });
     optionNodes.forEach(function(option) {
       if (option.dataset && option.dataset.clarityStatic === "1") {
         return;
@@ -1124,7 +1129,7 @@ HTML;
       return;
     }
 
-    form.classList.add("clarity-config-tabs-ready");
+    scope.classList.add("clarity-config-tabs-ready");
     var header = document.createElement("div");
     header.className = "clarity-config-tabs";
     var bar = document.createElement("div");
@@ -1166,7 +1171,7 @@ HTML;
     if (firstOption && firstOption.parentNode) {
       firstOption.parentNode.insertBefore(header, firstOption);
     } else {
-      form.insertBefore(header, form.firstChild);
+      scope.insertBefore(header, scope.firstChild);
     }
 
     var activeTab = "";
@@ -1185,8 +1190,9 @@ HTML;
       return;
     }
     form.dataset.clarityAdminReady = "1";
-    initActions(form);
-    initTabs(form);
+    var scope = form.closest(".typecho-page-main") || form.parentNode || form;
+    initActions(scope, form);
+    initTabs(scope, form);
   }
 
   if (document.readyState === "loading") {
