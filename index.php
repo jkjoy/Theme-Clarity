@@ -3,7 +3,7 @@
  * 基于 halo主题 Clarity 修改的 Typecho 主题
  * @package Clarity
  * @author jkjoy
- * @version 1.1.7
+ * @version 1.1.8
  * @link https://jkjoy.de
  */
 clarity_set('showAside', true);
