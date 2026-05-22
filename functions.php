@@ -795,14 +795,14 @@ function themeConfig($form)
             $diagColor = '#1a7f37';
         }
         $diagMsg = nl2br(htmlspecialchars((string) $diag['message'], ENT_QUOTES, 'UTF-8'));
-        echo '<ul class="typecho-option"><li>';
+        echo '<ul class="typecho-option" data-clarity-tab="tools"><li>';
         echo '<label class="typecho-label">' . _t('Clarity 设置诊断') . '</label>';
         echo '<div class="description" style="color:' . $diagColor . ';">' . $diagMsg . '</div>';
         echo '</li></ul>';
     }
 
     if (is_array($updateInfo) && !empty($updateInfo['latest'])) {
-        echo '<ul class="typecho-option"><li>';
+        echo '<ul class="typecho-option" data-clarity-tab="tools"><li>';
         echo '<label class="typecho-label">' . _t('Clarity主题更新') . '</label>';
         echo '<div class="description">';
         $current = htmlspecialchars((string) ($updateInfo['current'] ?? CLARITY_VERSION), ENT_QUOTES, 'UTF-8');
@@ -823,16 +823,22 @@ function themeConfig($form)
         echo '</div>';
         echo '<div style="margin-top:8px;">';
         echo '<button type="button" class="btn" data-update-action="check">' . _t('立即检查更新') . '</button>';
+        if (!empty($updateInfo['need_update'])) {
+            $confirm = htmlspecialchars(_t('确认下载最新版本并覆盖当前主题目录？更新期间请勿关闭页面。'), ENT_QUOTES, 'UTF-8');
+            $themeDir = htmlspecialchars(__DIR__, ENT_QUOTES, 'UTF-8');
+            echo ' <button type="button" class="btn primary" data-update-action="install" data-confirm="' . $confirm . '">' . _t('在线更新主题') . '</button>';
+            echo '<br><span class="description">' . _t('覆盖目录：') . $themeDir . '</span>';
+        }
         echo '</div></li></ul>';
     } else {
-        echo '<ul class="typecho-option"><li>';
+        echo '<ul class="typecho-option" data-clarity-tab="tools"><li>';
         echo '<label class="typecho-label">' . _t('Clarity主题更新') . '</label>';
         echo '<div style="margin-top:8px;">';
         echo '<button type="button" class="btn" data-update-action="check">' . _t('立即检查更新') . '</button>';
         echo '</div></li></ul>';
     }
 
-    echo '<ul class="typecho-option"><li>';
+    echo '<ul class="typecho-option" data-clarity-tab="tools"><li>';
     echo '<label class="typecho-label">' . _t('Clarity主题设置备份') . '</label>';
     echo '<div class="description">' . _t('最多保留 3 份备份。备份/恢复/删除不会保存当前未保存的设置。') . '</div>';
     echo '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">';
@@ -842,7 +848,357 @@ function themeConfig($form)
     echo '<div id="clarity-backup-message" class="description" style="margin-top:6px;display:none;"></div>';
     echo '</li></ul>';
 
-    echo '<script>(function(){var init=function(){var form=document.querySelector(\'form[action*="themes-edit"]\');var actionInput=document.getElementById(\'clarity-backup-action\');var targetInput=document.getElementById(\'clarity-backup-target\');var updateInput=document.getElementById(\'clarity-update-action\');var message=document.getElementById(\'clarity-backup-message\');if(!form){return;}var showMsg=function(text,type){if(!message){return;}message.textContent=text;message.style.display=\'block\';if(type===\'success\'){message.style.color=\'#1a7f37\';}else if(type===\'warn\'){message.style.color=\'#b78103\';}else{message.style.color=\'#d14343\';}};document.querySelectorAll(\'[data-backup-action]\').forEach(function(btn){btn.addEventListener(\'click\',function(){if(!actionInput||!targetInput){return;}var action=btn.getAttribute(\'data-backup-action\');if(!action){return;}var target=btn.getAttribute(\'data-backup-id\')||\'\';if((action===\'restore\'||action===\'delete\')&&!target){showMsg(\'请选择要操作的备份\',\'error\');return;}if(action===\'delete\'){if(!btn.dataset.confirmed){btn.dataset.confirmed=\'1\';showMsg(\'再次点击删除以确认\', \'warn\');setTimeout(function(){btn.dataset.confirmed=\'\';}, 3000);return;}btn.dataset.confirmed=\'\';}actionInput.value=action;targetInput.value=target;if(updateInput){updateInput.value=\'\';}form.submit();});});document.querySelectorAll(\'[data-update-action]\').forEach(function(btn){btn.addEventListener(\'click\',function(){if(!updateInput){return;}var action=btn.getAttribute(\'data-update-action\');if(!action){return;}updateInput.value=action;if(actionInput){actionInput.value=\'\';}if(targetInput){targetInput.value=\'\';}form.submit();});});};if(document.readyState===\'loading\'){document.addEventListener(\'DOMContentLoaded\',init);}else{init();}})();</script>';
+    echo clarity_theme_config_admin_assets();
+}
+
+function clarity_theme_config_admin_assets(): string
+{
+    $tabLabels = [
+        'basic' => _t('基础'),
+        'nav' => _t('导航'),
+        'sidebar' => _t('侧栏'),
+        'content' => _t('文章'),
+        'pages' => _t('页面'),
+        'footer' => _t('页脚'),
+        'comments' => _t('评论'),
+        'advanced' => _t('高级'),
+        'tools' => _t('备份更新'),
+    ];
+
+    $tabMap = [
+        'basic' => [
+            'clarity_logo',
+            'clarity_show_title',
+            'clarity_subtitle',
+            'clarity_emoji_tail',
+            'clarity_primary_color',
+            'clarity_accent_color',
+            'clarity_logo_font_css',
+            'clarity_links_title_font_css',
+            'clarity_page_transition',
+            'clarity_theme_mode',
+        ],
+        'nav' => [
+            'clarity_menu_json',
+            'clarity_menu_icon_invert',
+            'clarity_nav_active_indicator',
+            'clarity_user_auth',
+        ],
+        'sidebar' => [
+            'clarity_aside_enable',
+            'clarity_aside_widgets',
+            'clarity_social_json',
+            'clarity_community_image',
+            'clarity_community_title',
+            'clarity_community_name',
+            'clarity_community_desc',
+            'clarity_sponsor_title',
+            'clarity_sponsor_logo',
+            'clarity_sponsor_name',
+            'clarity_sponsor_url',
+            'clarity_sponsor_desc',
+            'clarity_aside_custom_title',
+            'clarity_aside_custom_html',
+            'clarity_weather_key',
+            'clarity_moments_widget_title',
+            'clarity_moments_widget_count',
+            'clarity_moments_widget_no_text',
+        ],
+        'content' => [
+            'clarity_show_post_author',
+            'clarity_featured_posts',
+            'clarity_featured_posts_page',
+            'clarity_cursor_order',
+            'clarity_default_cover',
+            'clarity_center_title',
+            'clarity_show_excerpt',
+            'clarity_excerpt_animation',
+            'clarity_excerpt_speed',
+            'clarity_excerpt_caret',
+            'clarity_outdated_enabled',
+            'clarity_outdated_days',
+            'clarity_outdated_message',
+            'clarity_img_alt',
+            'clarity_enable_post_toc',
+            'clarity_enable_page_toc',
+            'clarity_enable_edit',
+            'clarity_enable_fancybox',
+            'clarity_enable_page_jump',
+            'clarity_title_type',
+        ],
+        'pages' => [
+            'clarity_switch_category_layout',
+            'clarity_switch_tag_layout',
+            'clarity_links_title',
+            'clarity_links_random',
+            'clarity_links_my_info',
+            'clarity_links_apply',
+            'clarity_links_data',
+            'clarity_photos_title',
+            'clarity_photos_desc',
+            'clarity_photos_data',
+            'clarity_moments_data',
+            'clarity_moments_title',
+            'clarity_moments_page_size',
+            'clarity_bangumis_title',
+            'clarity_bangumis_uid',
+            'clarity_bangumi_cache_minutes',
+            'clarity_owner_birthday',
+            'clarity_archives_years',
+        ],
+        'footer' => [
+            'clarity_footer_explore_json',
+            'clarity_footer_links_json',
+            'clarity_footer_show_rss',
+            'clarity_footer_show_travellings',
+            'clarity_footer_beian',
+            'clarity_footer_gongan',
+            'clarity_footer_uptime_kuma',
+            'clarity_footer_uptime_kuma_badge',
+            'clarity_footer_uptime_kuma_url',
+            'clarity_site_start_time',
+            'clarity_license',
+            'clarity_license_url',
+        ],
+        'comments' => [
+            'clarity_comment_form_position',
+        ],
+        'advanced' => [
+            'clarity_preconnect_urls',
+            'clarity_headhtml',
+            'clarity_footerhtml',
+        ],
+        'tools' => [
+            'clarity_backup_action',
+            'clarity_backup_target',
+            'clarity_update_action',
+        ],
+    ];
+
+    $labelsJson = json_encode($tabLabels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $mapJson = json_encode($tabMap, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+    $style = <<<HTML
+<style>
+.clarity-config-tabs{position:sticky;top:0;z-index:20;margin:0 0 14px;background:#f6f8fb;border-bottom:1px solid #d7dee8;padding:10px 0 0;}
+.clarity-config-tabs__bar{display:flex;gap:6px;overflow-x:auto;padding:0 2px;scrollbar-width:none;}
+.clarity-config-tabs__bar::-webkit-scrollbar{display:none;}
+.clarity-config-tabs__tab{appearance:none;border:1px solid #cfd8e3;border-bottom:none;border-radius:8px 8px 0 0;background:#ecf1f7;color:#475569;padding:8px 13px;font-size:13px;line-height:1;white-space:nowrap;cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease;}
+.clarity-config-tabs__tab:hover{background:#e6edf6;}
+.clarity-config-tabs__tab.is-active{background:#fff;color:#111827;border-color:#b8c4d3;box-shadow:0 -2px 0 #3b82f6 inset;}
+.clarity-config-tabs__section.is-hidden{display:none!important;}
+.clarity-config-tabs__section[data-clarity-static="1"]{display:block;}
+</style>
+HTML;
+
+    $script = <<<HTML
+<script>
+(function(){
+  var tabLabels = {$labelsJson};
+  var tabMap = {$mapJson};
+  var tabOrder = Object.keys(tabLabels);
+  var storageKey = "clarity-theme-settings-tab";
+
+  function initActions(form) {
+    var actionInput = document.getElementById("clarity-backup-action");
+    var targetInput = document.getElementById("clarity-backup-target");
+    var updateInput = document.getElementById("clarity-update-action");
+    var message = document.getElementById("clarity-backup-message");
+
+    function showMsg(text, type) {
+      if (!message) {
+        return;
+      }
+      message.textContent = text;
+      message.style.display = "block";
+      if (type === "success") {
+        message.style.color = "#1a7f37";
+      } else if (type === "warn") {
+        message.style.color = "#b78103";
+      } else {
+        message.style.color = "#d14343";
+      }
+    }
+
+    Array.prototype.slice.call(form.querySelectorAll("[data-backup-action]")).forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        if (!actionInput || !targetInput) {
+          return;
+        }
+        var action = btn.getAttribute("data-backup-action");
+        if (!action) {
+          return;
+        }
+        var target = btn.getAttribute("data-backup-id") || "";
+        if ((action === "restore" || action === "delete") && !target) {
+          showMsg("请选择要操作的备份", "error");
+          return;
+        }
+        if (action === "delete") {
+          if (!btn.dataset.confirmed) {
+            btn.dataset.confirmed = "1";
+            showMsg("再次点击删除以确认", "warn");
+            setTimeout(function() {
+              btn.dataset.confirmed = "";
+            }, 3000);
+            return;
+          }
+          btn.dataset.confirmed = "";
+        }
+        actionInput.value = action;
+        targetInput.value = target;
+        if (updateInput) {
+          updateInput.value = "";
+        }
+        form.submit();
+      });
+    });
+
+    Array.prototype.slice.call(form.querySelectorAll("[data-update-action]")).forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        if (!updateInput) {
+          return;
+        }
+        var action = btn.getAttribute("data-update-action");
+        if (!action) {
+          return;
+        }
+        var confirmText = btn.getAttribute("data-confirm") || "";
+        if (confirmText && !window.confirm(confirmText)) {
+          return;
+        }
+        updateInput.value = action;
+        if (actionInput) {
+          actionInput.value = "";
+        }
+        if (targetInput) {
+          targetInput.value = "";
+        }
+        form.submit();
+      });
+    });
+  }
+
+  function initTabs(form) {
+    var nameToTab = {};
+    tabOrder.forEach(function(tab) {
+      (tabMap[tab] || []).forEach(function(name) {
+        nameToTab[name] = tab;
+      });
+    });
+
+    var tabSections = {};
+    tabOrder.forEach(function(tab) {
+      tabSections[tab] = [];
+    });
+
+    var optionNodes = Array.prototype.slice.call(form.querySelectorAll(".typecho-option"));
+    optionNodes.forEach(function(option) {
+      if (option.dataset && option.dataset.clarityStatic === "1") {
+        return;
+      }
+
+      var assigned = option.getAttribute("data-clarity-tab") || "";
+      if (!assigned) {
+        var fields = Array.prototype.slice.call(option.querySelectorAll("input[name],select[name],textarea[name]"));
+        for (var i = 0; i < fields.length; i++) {
+          var name = (fields[i].getAttribute("name") || "").replace(/\[\]$/, "");
+          if (nameToTab[name]) {
+            assigned = nameToTab[name];
+            break;
+          }
+        }
+      }
+
+      if (assigned && tabSections[assigned]) {
+        option.dataset.clarityTab = assigned;
+        option.classList.add("clarity-config-tabs__section");
+        tabSections[assigned].push(option);
+      }
+    });
+
+    var tabs = tabOrder.filter(function(tab) {
+      return tabSections[tab] && tabSections[tab].length > 0;
+    });
+    if (!tabs.length) {
+      return;
+    }
+
+    form.classList.add("clarity-config-tabs-ready");
+    var header = document.createElement("div");
+    header.className = "clarity-config-tabs";
+    var bar = document.createElement("div");
+    bar.className = "clarity-config-tabs__bar";
+    bar.setAttribute("role", "tablist");
+    header.appendChild(bar);
+
+    var buttons = {};
+    function setActive(tab) {
+      tabs.forEach(function(key) {
+        tabSections[key].forEach(function(option) {
+          option.classList.toggle("is-hidden", key !== tab);
+        });
+      });
+      Object.keys(buttons).forEach(function(key) {
+        buttons[key].classList.toggle("is-active", key === tab);
+        buttons[key].setAttribute("aria-selected", key === tab ? "true" : "false");
+      });
+      try {
+        localStorage.setItem(storageKey, tab);
+      } catch (e) {}
+    }
+
+    tabs.forEach(function(tab) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "clarity-config-tabs__tab";
+      btn.textContent = tabLabels[tab] || tab;
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", "false");
+      btn.addEventListener("click", function() {
+        setActive(tab);
+      });
+      bar.appendChild(btn);
+      buttons[tab] = btn;
+    });
+
+    var firstOption = optionNodes[0] || null;
+    if (firstOption && firstOption.parentNode) {
+      firstOption.parentNode.insertBefore(header, firstOption);
+    } else {
+      form.insertBefore(header, form.firstChild);
+    }
+
+    var activeTab = "";
+    try {
+      activeTab = localStorage.getItem(storageKey) || "";
+    } catch (e) {}
+    if (!activeTab || tabs.indexOf(activeTab) === -1) {
+      activeTab = tabs[0];
+    }
+    setActive(activeTab);
+  }
+
+  function init() {
+    var form = document.querySelector("form[action*=\"themes-edit\"]");
+    if (!form || form.dataset.clarityAdminReady === "1") {
+      return;
+    }
+    form.dataset.clarityAdminReady = "1";
+    initActions(form);
+    initTabs(form);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+HTML;
+
+    return $style . $script;
 }
 
 function themeConfigHandle($settings, $isInit)
@@ -863,6 +1219,24 @@ function themeConfigHandle($settings, $isInit)
             \Widget\Notice::alloc()->set(_t('已刷新更新信息'), 'success');
         } else {
             \Widget\Notice::alloc()->set(_t('暂无法获取更新信息'), 'error');
+        }
+        return true;
+    }
+
+    if ($updateAction === 'install') {
+        $repo = defined('CLARITY_GITHUB_REPO') ? CLARITY_GITHUB_REPO : 'jkjoy/Theme-Clarity';
+        $error = '';
+        $info = clarity_theme_install_latest_release($repo, $error);
+        if (is_array($info)) {
+            clarity_db_set_option_value(clarity_theme_update_key(), '');
+            $latest = (string) ($info['version'] ?? '');
+            $msg = $latest !== '' ? _t('主题已更新到 %s', $latest) : _t('主题更新完成');
+            clarity_theme_diag_set($msg, 'success');
+            \Widget\Notice::alloc()->set($msg, 'success');
+        } else {
+            $msg = _t('主题更新失败：%s', $error !== '' ? $error : _t('未知错误'));
+            clarity_theme_diag_set($msg, 'error');
+            \Widget\Notice::alloc()->set($msg, 'error');
         }
         return true;
     }
@@ -1259,10 +1633,475 @@ function clarity_theme_backups_write(array $backups): void
     clarity_db_set_option_value(clarity_theme_backup_key(), $value);
 }
 
+function clarity_fs_path_inside(string $path, string $root): bool
+{
+    $pathReal = realpath($path);
+    $rootReal = realpath($root);
+    if ($pathReal === false || $rootReal === false) {
+        return false;
+    }
+
+    $pathNorm = rtrim(str_replace('\\', '/', $pathReal), '/');
+    $rootNorm = rtrim(str_replace('\\', '/', $rootReal), '/');
+    return $pathNorm === $rootNorm || strpos($pathNorm, $rootNorm . '/') === 0;
+}
+
+function clarity_fs_mkdir(string $dir): bool
+{
+    if (is_dir($dir)) {
+        return true;
+    }
+    if (@mkdir($dir, 0755, true)) {
+        return true;
+    }
+    return is_dir($dir);
+}
+
+function clarity_fs_remove_tree(string $path, string $allowedRoot = ''): bool
+{
+    if ($path === '' || !file_exists($path)) {
+        return true;
+    }
+    if ($allowedRoot !== '' && !clarity_fs_path_inside($path, $allowedRoot)) {
+        return false;
+    }
+
+    if (is_file($path) || is_link($path)) {
+        return @unlink($path);
+    }
+
+    $items = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($items as $item) {
+        $itemPath = $item->getPathname();
+        if ($item->isDir() && !$item->isLink()) {
+            if (!@rmdir($itemPath)) {
+                return false;
+            }
+        } else {
+            if (!@unlink($itemPath)) {
+                return false;
+            }
+        }
+    }
+
+    return @rmdir($path);
+}
+
+function clarity_http_download_file(string $url, array $headers, string $target, int $timeout = 20): bool
+{
+    $targetDir = dirname($target);
+    if (!clarity_fs_mkdir($targetDir) || !is_writable($targetDir)) {
+        return false;
+    }
+
+    if (function_exists('curl_init')) {
+        $fp = @fopen($target, 'wb');
+        if ($fp === false) {
+            return false;
+        }
+
+        $headerLines = [];
+        foreach ($headers as $name => $value) {
+            $headerLines[] = $name . ': ' . $value;
+        }
+
+        $ch = curl_init($url);
+        $userAgent = isset($headers['User-Agent']) ? (string) $headers['User-Agent'] : 'Typecho-Clarity';
+        curl_setopt_array($ch, [
+            CURLOPT_FILE => $fp,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_HTTPHEADER => $headerLines,
+            CURLOPT_USERAGENT => $userAgent,
+            CURLOPT_FAILONERROR => true,
+        ]);
+        $result = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        fclose($fp);
+
+        if ($result === false || $httpCode < 200 || $httpCode >= 300 || !is_file($target) || filesize($target) === 0) {
+            @unlink($target);
+            return false;
+        }
+        return true;
+    }
+
+    $headerLines = [];
+    foreach ($headers as $name => $value) {
+        $headerLines[] = $name . ': ' . $value;
+    }
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => implode("\r\n", $headerLines),
+            'timeout' => $timeout,
+            'ignore_errors' => false,
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+        ],
+    ]);
+    $data = @file_get_contents($url, false, $context);
+    if (!is_string($data) || $data === '') {
+        @unlink($target);
+        return false;
+    }
+    if (@file_put_contents($target, $data) === false || filesize($target) === 0) {
+        @unlink($target);
+        return false;
+    }
+    return true;
+}
+
+function clarity_zip_extract_safe(string $zipFile, string $destination, ?string &$error = null): bool
+{
+    $error = '';
+    if (!class_exists('ZipArchive')) {
+        $error = _t('当前环境不支持 ZipArchive');
+        return false;
+    }
+
+    if (!is_file($zipFile)) {
+        $error = _t('更新包不存在');
+        return false;
+    }
+
+    if (!clarity_fs_mkdir($destination)) {
+        $error = _t('无法创建解压目录');
+        return false;
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($zipFile) !== true) {
+        $error = _t('无法打开更新包');
+        return false;
+    }
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $stat = $zip->statIndex($i);
+        $name = (string) ($stat['name'] ?? '');
+        $name = str_replace('\\', '/', $name);
+        if ($name === '') {
+            continue;
+        }
+        if (strpos($name, "\0") !== false || preg_match('#(^/|^[A-Za-z]:|(^|/)\.\.(/|$))#', $name)) {
+            $zip->close();
+            $error = _t('更新包包含非法路径');
+            return false;
+        }
+    }
+
+    if (!$zip->extractTo($destination)) {
+        $zip->close();
+        $error = _t('更新包解压失败');
+        return false;
+    }
+    $zip->close();
+    return true;
+}
+
+function clarity_github_repo_is_valid(string $repo): bool
+{
+    return (bool) preg_match('/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/', trim($repo));
+}
+
+function clarity_github_api_headers(): array
+{
+    return [
+        'User-Agent' => 'Typecho-Clarity',
+        'Accept' => 'application/vnd.github+json',
+    ];
+}
+
+function clarity_github_pick_latest_tag(array $tags): ?array
+{
+    $fallback = null;
+    $best = null;
+    $bestVersion = '';
+
+    foreach ($tags as $tag) {
+        if (!is_array($tag)) {
+            continue;
+        }
+        $name = (string) ($tag['name'] ?? '');
+        if ($name === '') {
+            continue;
+        }
+        if ($fallback === null) {
+            $fallback = $tag;
+        }
+
+        $version = preg_replace('/^v/i', '', $name);
+        if (!is_string($version) || !preg_match('/^\d+(?:\.\d+)*/', $version)) {
+            continue;
+        }
+
+        if ($best === null || version_compare($version, $bestVersion, '>')) {
+            $best = $tag;
+            $bestVersion = $version;
+        }
+    }
+
+    return $best ?: $fallback;
+}
+
+function clarity_github_latest_package(string $repo): ?array
+{
+    $repo = trim($repo);
+    if (!clarity_github_repo_is_valid($repo)) {
+        return null;
+    }
+
+    $headers = clarity_github_api_headers();
+    $release = clarity_http_get_json('https://api.github.com/repos/' . $repo . '/releases/latest', $headers, 8);
+    $releaseTag = is_array($release) ? (string) ($release['tag_name'] ?? $release['name'] ?? '') : '';
+    if ($releaseTag !== '') {
+        $releaseZip = (string) ($release['zipball_url'] ?? '');
+        if ($releaseZip === '') {
+            $encodedTag = rawurlencode($releaseTag);
+            $releaseZip = 'https://api.github.com/repos/' . $repo . '/zipball/' . $encodedTag;
+        }
+        return [
+            'tag_name' => $releaseTag,
+            'html_url' => (string) ($release['html_url'] ?? ''),
+            'published_at' => (string) ($release['published_at'] ?? ''),
+            'zipball_url' => $releaseZip,
+            'source' => 'release',
+        ];
+    }
+
+    $tags = clarity_http_get_json('https://api.github.com/repos/' . $repo . '/tags?per_page=50', $headers, 8);
+    if (!is_array($tags)) {
+        return null;
+    }
+
+    $tag = clarity_github_pick_latest_tag($tags);
+    if (!is_array($tag)) {
+        return null;
+    }
+
+    $tagName = (string) ($tag['name'] ?? '');
+    if ($tagName === '') {
+        return null;
+    }
+
+    $encodedTag = rawurlencode($tagName);
+    return [
+        'tag_name' => $tagName,
+        'html_url' => 'https://github.com/' . $repo . '/tree/' . $encodedTag,
+        'published_at' => '',
+        'zipball_url' => (string) ($tag['zipball_url'] ?? ('https://api.github.com/repos/' . $repo . '/zipball/' . $encodedTag)),
+        'source' => 'tag',
+    ];
+}
+
+function clarity_theme_install_latest_release(string $repo, ?string &$error = null): ?array
+{
+    $error = '';
+    $repo = trim($repo);
+    if (!clarity_github_repo_is_valid($repo)) {
+        $error = _t('更新仓库地址无效');
+        return null;
+    }
+
+    $package = clarity_github_latest_package($repo);
+    if (!is_array($package)) {
+        $error = _t('无法获取最新更新包');
+        return null;
+    }
+
+    $latest = preg_replace('/^v/i', '', (string) ($package['tag_name'] ?? ''));
+    if ($latest === '') {
+        $error = _t('更新版本号无效');
+        return null;
+    }
+
+    $current = preg_replace('/^v/i', '', (string) CLARITY_VERSION);
+    if ($current !== '' && !version_compare($latest, $current, '>')) {
+        $error = _t('当前已经是最新版本');
+        return null;
+    }
+
+    $zipUrl = trim((string) ($package['zipball_url'] ?? ''));
+    if ($zipUrl === '') {
+        $error = _t('未找到更新包下载地址');
+        return null;
+    }
+
+    $themeDir = __DIR__;
+    $themeDirReal = realpath($themeDir);
+    if ($themeDirReal !== false) {
+        $themeDir = $themeDirReal;
+    }
+
+    if (!is_dir($themeDir) || !is_writable($themeDir)) {
+        $error = _t('当前主题目录不可写：%s', $themeDir);
+        return null;
+    }
+
+    $baseDir = sys_get_temp_dir();
+    if (!is_dir($baseDir) || !is_writable($baseDir)) {
+        $error = _t('系统临时目录不可写');
+        return null;
+    }
+
+    $workDir = rtrim($baseDir, '\\/') . DIRECTORY_SEPARATOR . 'clarity-update-' . uniqid('', true);
+    $extractDir = $workDir . DIRECTORY_SEPARATOR . 'extract';
+    $zipFile = $workDir . DIRECTORY_SEPARATOR . 'package.zip';
+    if (!clarity_fs_mkdir($extractDir)) {
+        $error = _t('无法创建临时工作目录');
+        return null;
+    }
+
+    try {
+        if (!clarity_http_download_file($zipUrl, clarity_github_api_headers(), $zipFile, 30)) {
+            $error = _t('更新包下载失败');
+            return null;
+        }
+
+        $extractBase = $extractDir . DIRECTORY_SEPARATOR . 'payload';
+        if (!clarity_fs_mkdir($extractBase)) {
+            $error = _t('无法准备解压目录');
+            return null;
+        }
+
+        $zipError = '';
+        if (!clarity_zip_extract_safe($zipFile, $extractBase, $zipError)) {
+            $error = $zipError !== '' ? $zipError : _t('更新包解压失败');
+            return null;
+        }
+
+        $children = [];
+        foreach (scandir($extractBase) ?: [] as $name) {
+            if ($name === '.' || $name === '..' || $name === '__MACOSX') {
+                continue;
+            }
+            $children[] = $extractBase . DIRECTORY_SEPARATOR . $name;
+        }
+
+        $sourceRoot = $extractBase;
+        if (count($children) === 1 && is_dir($children[0])) {
+            $sourceRoot = $children[0];
+        }
+
+        if (!is_dir($sourceRoot)) {
+            $error = _t('更新包结构异常');
+            return null;
+        }
+
+        if (!clarity_fs_copy_tree($sourceRoot, $themeDir, $copyError)) {
+            $error = $copyError !== '' ? $copyError : _t('覆盖主题文件失败');
+            return null;
+        }
+
+        return [
+            'version' => $latest,
+            'source' => (string) ($package['source'] ?? ''),
+            'download_url' => $zipUrl,
+        ];
+    } finally {
+        clarity_fs_remove_tree($workDir, $baseDir);
+    }
+}
+
+function clarity_fs_copy_tree(string $source, string $destination, ?string &$error = null): bool
+{
+    $error = '';
+    if (!is_dir($source)) {
+        $error = _t('更新包源目录不存在');
+        return false;
+    }
+    if (!clarity_fs_mkdir($destination)) {
+        $error = _t('无法创建目标目录');
+        return false;
+    }
+
+    $sourceLength = strlen(rtrim($source, '\\/')) + 1;
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $item) {
+        $srcPath = $item->getPathname();
+        $relative = substr($srcPath, $sourceLength);
+        if ($relative === false || $relative === '') {
+            continue;
+        }
+
+        $destPath = rtrim($destination, '\\/') . DIRECTORY_SEPARATOR . $relative;
+        if ($item->isLink()) {
+            $error = _t('更新包包含链接文件：%s', $relative);
+            return false;
+        }
+
+        if ($item->isDir() && !$item->isLink()) {
+            if (!is_dir($destPath) && !@mkdir($destPath, 0755, true) && !is_dir($destPath)) {
+                $error = _t('无法创建目录：%s', $relative);
+                return false;
+            }
+            continue;
+        }
+
+        $destDir = dirname($destPath);
+        if (!is_dir($destDir) && !@mkdir($destDir, 0755, true) && !is_dir($destDir)) {
+            $error = _t('无法创建目录：%s', $relative);
+            return false;
+        }
+
+        $tmpPath = $destPath . '.clarity-tmp-' . uniqid('', true);
+        if (is_file($tmpPath) || is_link($tmpPath)) {
+            @unlink($tmpPath);
+        }
+        if (!@copy($srcPath, $tmpPath)) {
+            @unlink($tmpPath);
+            $error = _t('无法复制文件：%s', $relative);
+            return false;
+        }
+
+        if (is_file($destPath) || is_link($destPath)) {
+            @chmod($destPath, 0666);
+            if (!@unlink($destPath)) {
+                @unlink($tmpPath);
+                $error = _t('无法覆盖文件：%s', $relative);
+                return false;
+            }
+        } elseif (is_dir($destPath)) {
+            $error = _t('目标路径已被目录占用：%s', $relative);
+            @unlink($tmpPath);
+            return false;
+        }
+
+        if (!@rename($tmpPath, $destPath)) {
+            @unlink($tmpPath);
+            $error = _t('无法写入文件：%s', $relative);
+            return false;
+        }
+
+        $perms = @fileperms($srcPath);
+        if ($perms !== false) {
+            @chmod($destPath, $perms & 0777);
+        }
+        $mtime = @filemtime($srcPath);
+        if ($mtime !== false) {
+            @touch($destPath, $mtime);
+        }
+    }
+
+    return true;
+}
+
 function clarity_github_update_info(string $repo): ?array
 {
     $repo = trim($repo);
-    if ($repo === '') {
+    if ($repo === '' || !clarity_github_repo_is_valid($repo)) {
         return null;
     }
 
@@ -1280,12 +2119,7 @@ function clarity_github_update_info(string $repo): ?array
         return $cacheData;
     }
 
-    $url = 'https://api.github.com/repos/' . $repo . '/releases/latest';
-    $headers = [
-        'User-Agent' => 'Typecho-Clarity',
-        'Accept' => 'application/vnd.github+json',
-    ];
-    $data = clarity_http_get_json($url, $headers, 8);
+    $data = clarity_github_latest_package($repo);
     if (!is_array($data)) {
         if ($cacheData) {
             $cacheData['checked_at'] = $cacheTime ? date('Y-m-d H:i:s', $cacheTime) : '';
@@ -1311,6 +2145,8 @@ function clarity_github_update_info(string $repo): ?array
         'latest' => $tag,
         'url' => (string) ($data['html_url'] ?? ''),
         'published_at' => (string) ($data['published_at'] ?? ''),
+        'zipball_url' => (string) ($data['zipball_url'] ?? ''),
+        'source' => (string) ($data['source'] ?? ''),
         'need_update' => $needUpdate,
     ];
 

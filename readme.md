@@ -6,7 +6,7 @@
 
 [![Typecho](https://img.shields.io/badge/Typecho-1.2.1+-blue?style=flat-square)](https://typecho.org/)
 [![License](https://img.shields.io/badge/License-GPL--3.0-green?style=flat-square)](./LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.1.5-orange?style=flat-square)](./readme.md)
+[![Version](https://img.shields.io/badge/Version-1.1.7-orange?style=flat-square)](./readme.md)
 
 [🌐 预览站点](https://www.laosun.de)
 
