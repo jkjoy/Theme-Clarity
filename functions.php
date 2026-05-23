@@ -824,15 +824,16 @@ function themeConfig($form)
         echo '<div style="margin-top:8px;">';
         echo '<button type="button" class="btn" data-update-action="check">' . _t('立即检查更新') . '</button>';
         if (!empty($updateInfo['need_update'])) {
-            $confirm = htmlspecialchars(_t('确认下载最新版本并覆盖当前主题目录？更新期间请勿关闭页面。'), ENT_QUOTES, 'UTF-8');
+            $confirm = htmlspecialchars(_t('确认下载最新版本并覆盖当前主题目录？建议先备份主题文件，升级期间请勿关闭页面。'), ENT_QUOTES, 'UTF-8');
             $themeDir = htmlspecialchars(__DIR__, ENT_QUOTES, 'UTF-8');
-            echo ' <button type="button" class="btn primary" data-update-action="install" data-confirm="' . $confirm . '">' . _t('在线更新主题') . '</button>';
+            echo ' <button type="button" class="btn primary" data-update-action="install" data-confirm="' . $confirm . '">' . _t('在线升级') . '</button>';
             echo '<br><span class="description">' . _t('覆盖目录：') . $themeDir . '</span>';
         }
         echo '</div></li></ul>';
     } else {
         echo '<ul class="typecho-option" data-clarity-tab="tools"><li>';
         echo '<label class="typecho-label">' . _t('Clarity主题更新') . '</label>';
+        echo '<div class="description">' . _t('点击检查更新后，如果检测到新版本，会显示“在线升级”按钮。') . '</div>';
         echo '<div style="margin-top:8px;">';
         echo '<button type="button" class="btn" data-update-action="check">' . _t('立即检查更新') . '</button>';
         echo '</div></li></ul>';
@@ -1236,11 +1237,11 @@ function themeConfigHandle($settings, $isInit)
         if (is_array($info)) {
             clarity_db_set_option_value(clarity_theme_update_key(), '');
             $latest = (string) ($info['version'] ?? '');
-            $msg = $latest !== '' ? _t('主题已更新到 %s', $latest) : _t('主题更新完成');
+            $msg = $latest !== '' ? _t('主题已在线升级到 %s', $latest) : _t('主题在线升级完成');
             clarity_theme_diag_set($msg, 'success');
             \Widget\Notice::alloc()->set($msg, 'success');
         } else {
-            $msg = _t('主题更新失败：%s', $error !== '' ? $error : _t('未知错误'));
+            $msg = _t('主题在线升级失败：%s', $error !== '' ? $error : _t('未知错误'));
             clarity_theme_diag_set($msg, 'error');
             \Widget\Notice::alloc()->set($msg, 'error');
         }
@@ -1813,6 +1814,116 @@ function clarity_zip_extract_safe(string $zipFile, string $destination, ?string 
     return true;
 }
 
+function clarity_normalize_update_version(string $version): string
+{
+    $normalized = preg_replace('/^[vV]\s*/', '', trim($version));
+    return is_string($normalized) ? trim($normalized) : '';
+}
+
+function clarity_theme_index_info(string $indexFile): ?array
+{
+    if (!is_file($indexFile)) {
+        return null;
+    }
+
+    $content = @file_get_contents($indexFile);
+    if (!is_string($content) || $content === '') {
+        return null;
+    }
+
+    $tokens = token_get_all(ltrim($content, "\xEF\xBB\xBF"));
+    $doc = '';
+    foreach ($tokens as $token) {
+        if (is_array($token) && $token[0] === T_DOC_COMMENT) {
+            $doc = (string) $token[1];
+            break;
+        }
+    }
+
+    if ($doc === '') {
+        return null;
+    }
+
+    $info = [
+        'package' => '',
+        'version' => '',
+    ];
+    foreach (preg_split('/\r\n|\r|\n/', $doc) ?: [] as $line) {
+        $line = trim((string) $line, " \t/*");
+        if (preg_match('/@package\s+(.+)/i', $line, $match)) {
+            $info['package'] = trim((string) $match[1]);
+            continue;
+        }
+        if (preg_match('/@version\s+(.+)/i', $line, $match)) {
+            $info['version'] = trim((string) $match[1]);
+        }
+    }
+
+    return $info['package'] !== '' ? $info : null;
+}
+
+function clarity_find_extracted_theme_source(string $extractBase, string $expectedVersion, ?string &$error = null): ?array
+{
+    $error = '';
+    if (!is_dir($extractBase)) {
+        $error = _t('更新包解压目录不存在');
+        return null;
+    }
+
+    $candidates = [$extractBase];
+    foreach (scandir($extractBase) ?: [] as $name) {
+        if ($name === '.' || $name === '..' || $name === '__MACOSX') {
+            continue;
+        }
+        $path = $extractBase . DIRECTORY_SEPARATOR . $name;
+        if (is_dir($path)) {
+            $candidates[] = $path;
+        }
+    }
+
+    $current = clarity_normalize_update_version((string) CLARITY_VERSION);
+    $expected = clarity_normalize_update_version($expectedVersion);
+    foreach ($candidates as $candidate) {
+        $indexFile = rtrim($candidate, '\\/') . DIRECTORY_SEPARATOR . 'index.php';
+        $info = clarity_theme_index_info($indexFile);
+        if (!is_array($info)) {
+            continue;
+        }
+
+        $package = (string) ($info['package'] ?? '');
+        if (!preg_match('/\bclarity\b/i', $package)) {
+            continue;
+        }
+
+        $version = clarity_normalize_update_version((string) ($info['version'] ?? ''));
+        if ($version === '') {
+            $error = _t('更新包 index.php 缺少主题版本号');
+            continue;
+        }
+
+        if ($current !== '' && !version_compare($version, $current, '>')) {
+            $error = _t('更新包版本未高于当前版本：%s', $version);
+            continue;
+        }
+
+        if ($expected !== '' && version_compare($version, $expected, '<')) {
+            $error = _t('更新包版本与远程版本不一致：%s', $version);
+            continue;
+        }
+
+        return [
+            'path' => $candidate,
+            'package' => $package,
+            'version' => $version,
+        ];
+    }
+
+    if ($error === '') {
+        $error = _t('更新包中没有找到有效的 Clarity 主题目录');
+    }
+    return null;
+}
+
 function clarity_github_repo_is_valid(string $repo): bool
 {
     return (bool) preg_match('/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/', trim($repo));
@@ -1844,8 +1955,8 @@ function clarity_github_pick_latest_tag(array $tags): ?array
             $fallback = $tag;
         }
 
-        $version = preg_replace('/^v/i', '', $name);
-        if (!is_string($version) || !preg_match('/^\d+(?:\.\d+)*/', $version)) {
+        $version = clarity_normalize_update_version($name);
+        if ($version === '' || !preg_match('/^\d+(?:\.\d+)*/', $version)) {
             continue;
         }
 
@@ -1923,13 +2034,13 @@ function clarity_theme_install_latest_release(string $repo, ?string &$error = nu
         return null;
     }
 
-    $latest = preg_replace('/^v/i', '', (string) ($package['tag_name'] ?? ''));
+    $latest = clarity_normalize_update_version((string) ($package['tag_name'] ?? ''));
     if ($latest === '') {
         $error = _t('更新版本号无效');
         return null;
     }
 
-    $current = preg_replace('/^v/i', '', (string) CLARITY_VERSION);
+    $current = clarity_normalize_update_version((string) CLARITY_VERSION);
     if ($current !== '' && !version_compare($latest, $current, '>')) {
         $error = _t('当前已经是最新版本');
         return null;
@@ -1984,31 +2095,21 @@ function clarity_theme_install_latest_release(string $repo, ?string &$error = nu
             return null;
         }
 
-        $children = [];
-        foreach (scandir($extractBase) ?: [] as $name) {
-            if ($name === '.' || $name === '..' || $name === '__MACOSX') {
-                continue;
-            }
-            $children[] = $extractBase . DIRECTORY_SEPARATOR . $name;
-        }
-
-        $sourceRoot = $extractBase;
-        if (count($children) === 1 && is_dir($children[0])) {
-            $sourceRoot = $children[0];
-        }
-
-        if (!is_dir($sourceRoot)) {
-            $error = _t('更新包结构异常');
+        $sourceError = '';
+        $sourceInfo = clarity_find_extracted_theme_source($extractBase, $latest, $sourceError);
+        if (!is_array($sourceInfo) || empty($sourceInfo['path'])) {
+            $error = $sourceError !== '' ? $sourceError : _t('更新包结构异常');
             return null;
         }
 
+        $sourceRoot = (string) $sourceInfo['path'];
         if (!clarity_fs_copy_tree($sourceRoot, $themeDir, $copyError)) {
             $error = $copyError !== '' ? $copyError : _t('覆盖主题文件失败');
             return null;
         }
 
         return [
-            'version' => $latest,
+            'version' => (string) ($sourceInfo['version'] ?? $latest),
             'source' => (string) ($package['source'] ?? ''),
             'download_url' => $zipUrl,
         ];
@@ -2135,7 +2236,7 @@ function clarity_github_update_info(string $repo): ?array
     }
 
     $tag = (string) ($data['tag_name'] ?? $data['name'] ?? '');
-    $tag = preg_replace('/^v/i', '', $tag);
+    $tag = clarity_normalize_update_version($tag);
     if ($tag === '') {
         if ($cacheData) {
             $cacheData['checked_at'] = $cacheTime ? date('Y-m-d H:i:s', $cacheTime) : '';
@@ -2143,7 +2244,7 @@ function clarity_github_update_info(string $repo): ?array
         }
         return null;
     }
-    $current = preg_replace('/^v/i', '', (string) CLARITY_VERSION);
+    $current = clarity_normalize_update_version((string) CLARITY_VERSION);
     $needUpdate = $tag !== '' && $current !== '' ? version_compare($tag, $current, '>') : false;
 
     $info = [
